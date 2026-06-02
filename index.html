@@ -241,7 +241,7 @@ textarea.styled:focus{outline:none;border-color:var(--accent);}
         <div><div id="bsc-b" class="text-lg font-bold" style="color:var(--muted)">0</div><div style="color:var(--muted)">Blancos</div></div>
       </div>
       <div class="text-xs text-center mb-3" style="color:var(--muted)">Fórmula: (Aciertos − Fallos÷2) ÷ 30 × 10</div>
-      <button onclick="document.getElementById('block-score-card').classList.add('hidden')" class="btn-ghost w-full text-xs">Cerrar</button>
+      <div class="flex gap-2"><button onclick="document.getElementById('block-score-card').classList.add('hidden')" class="btn-ghost flex-1 text-xs">Ver preguntas</button><button onclick="openTheme=null;renderTestSelector();document.getElementById('block-score-card').classList.add('hidden');document.getElementById('test-selector-ui').scrollIntoView({behavior:'smooth'})" class="btn-primary flex-1 text-xs">Nuevo test →</button></div>
     </div>
     <div id="q-nav-row" class="mb-3 overflow-x-auto pb-1"></div>
     <div id="q-card" class="card p-5 mb-4 swipe-area">
@@ -9114,6 +9114,8 @@ function checkBlockComplete(){
     document.getElementById('bsc-w').textContent=r.w;
     document.getElementById('bsc-b').textContent=r.blank;
     document.getElementById('block-score-card').classList.remove('hidden');
+    document.getElementById('block-score-card').scrollIntoView({behavior:'smooth',block:'start'});
+    stopTimer();
     saveHistSession();
   }
 }
