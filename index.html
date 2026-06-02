@@ -144,13 +144,21 @@ textarea.styled:focus{outline:none;border-color:var(--accent);}
       </div>
       <button onclick="toggleDark()" id="dark-btn" class="btn-ghost px-3 py-2 text-base">🌙</button>
     </div>
-    <div class="flex border-b" style="border-color:var(--border)">
+    <div id="exam-countdown" class="mb-2 rounded-xl px-3 py-2" style="background:color-mix(in srgb,var(--accent) 8%,transparent)">
+      <div class="flex justify-between items-center mb-1">
+        <span id="cd-label" class="text-xs font-bold" style="color:var(--accent)">Cargando...</span>
+        <span id="cd-date" class="text-xs" style="color:var(--muted)">22 jun 2026</span>
+      </div>
+      <div class="progress-bar" style="height:5px"><div id="cd-bar" class="progress-fill" style="width:0%;background:linear-gradient(90deg,var(--accent),#818cf8)"></div></div>
+    </div>
+    <div class="flex border-b overflow-x-auto" style="border-color:var(--border)">
       <button onclick="showSection('test')" id="tab-test" class="nav-tab active">📝 Test</button>
       <button onclick="showSection('repaso')" id="tab-repaso" class="nav-tab">🔁 Repaso</button>
       <button onclick="showSection('simulacro')" id="tab-simulacro" class="nav-tab">🎲 Simulacro</button>
       <button onclick="showSection('glosario')" id="tab-glosario" class="nav-tab">📖 Glosario</button>
       <button onclick="showSection('casos')" id="tab-casos" class="nav-tab">🔍 Casos</button>
       <button onclick="showSection('stats')" id="tab-stats" class="nav-tab">📊 Stats</button>
+      <button onclick="showSection('historial')" id="tab-historial" class="nav-tab">📅 Historial</button>
     </div>
   </div>
 
@@ -214,12 +222,26 @@ textarea.styled:focus{outline:none;border-color:var(--accent);}
         </div>
       </div>
     </div>
-    <div class="mb-4">
-      <div class="flex justify-between text-xs mb-1.5" style="color:var(--muted)">
-        <span id="prog-text" class="font-medium">Pregunta 1 de 180</span>
-        <span id="prog-score" style="color:var(--accent)" class="font-semibold"></span>
+    <div class="mb-3">
+      <div class="flex justify-between items-center text-xs mb-1.5">
+        <span id="prog-text" class="font-medium" style="color:var(--muted)">Pregunta 1 de 30</span>
+        <span id="test-timer" class="font-mono font-bold text-xs px-2 py-0.5 rounded-lg" style="background:var(--surface);color:var(--accent)">00:00</span>
+        <span id="prog-score" style="color:var(--accent)" class="font-semibold text-xs"></span>
       </div>
-      <div class="progress-bar"><div id="prog-bar" class="progress-fill" style="width:0%"></div></div>
+      <div class="progress-bar" style="height:4px"><div id="prog-bar" class="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div id="block-score-card" class="hidden card p-4 mb-3" style="border:2px solid var(--accent)">
+      <div class="text-center mb-3">
+        <div id="bsc-nota" class="text-3xl font-black" style="color:var(--accent)">—</div>
+        <div class="text-xs font-semibold mt-1" style="color:var(--muted)">NOTA SOBRE 10</div>
+      </div>
+      <div class="flex justify-around text-center text-xs mb-3">
+        <div><div id="bsc-c" class="text-lg font-bold" style="color:#10b981">0</div><div style="color:var(--muted)">Aciertos</div></div>
+        <div><div id="bsc-w" class="text-lg font-bold" style="color:#ef4444">0</div><div style="color:var(--muted)">Fallos</div></div>
+        <div><div id="bsc-b" class="text-lg font-bold" style="color:var(--muted)">0</div><div style="color:var(--muted)">Blancos</div></div>
+      </div>
+      <div class="text-xs text-center mb-3" style="color:var(--muted)">Fórmula: (Aciertos − Fallos÷2) ÷ 30 × 10</div>
+      <button onclick="document.getElementById('block-score-card').classList.add('hidden')" class="btn-ghost w-full text-xs">Cerrar</button>
     </div>
     <div id="q-nav-row" class="mb-3 overflow-x-auto pb-1"></div>
     <div id="q-card" class="card p-5 mb-4 swipe-area">
@@ -327,6 +349,18 @@ textarea.styled:focus{outline:none;border-color:var(--accent);}
         <button onclick="startSimulacro()" class="btn-primary mt-4">🔄 Nuevo simulacro</button>
       </div>
       <div class="text-center"><button onclick="showSection('simulacro')" class="text-xs" style="color:var(--muted)">↩ Volver a configuración</button></div>
+    </div>
+  </div>
+
+  <div id="section-historial" class="hidden pt-4">
+    <p class="section-header">Historial de sesiones</p>
+    <div id="hist-list" class="flex flex-col gap-3"></div>
+    <div id="hist-review" class="hidden">
+      <div class="flex items-center gap-2 mb-4">
+        <button onclick="closeHistReview()" class="btn-ghost text-xs px-3 py-1.5">← Volver</button>
+        <span id="hist-rev-title" class="text-sm font-bold" style="color:var(--text)"></span>
+      </div>
+      <div id="hist-rev-list" class="flex flex-col gap-3"></div>
     </div>
   </div>
 
@@ -9028,6 +9062,171 @@ function buildQueue(){
   return pool;
 }
 function getKey(q){return 't'+q._t+'_'+q.id;}
+
+// ── BARAJAR OPCIONES ─────────────────────────────────────────────────
+var shuffleMap={};
+function getShuffleOrder(q){
+  var key=getKey(q);
+  if(!shuffleMap[key]){
+    var ord=[0,1,2,3];
+    for(var i=3;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=ord[i];ord[i]=ord[j];ord[j]=t;}
+    shuffleMap[key]=ord;
+  }
+  return shuffleMap[key];
+}
+function clearShuffle(){shuffleMap={};}
+
+// ── TEMPORIZADOR ──────────────────────────────────────────────────────
+var timerStart=null,timerInterval=null;
+function startTimer(){
+  timerStart=Date.now();
+  if(timerInterval)clearInterval(timerInterval);
+  timerInterval=setInterval(function(){
+    var el=document.getElementById('test-timer');if(!el)return;
+    var s=Math.floor((Date.now()-timerStart)/1000);
+    var m=Math.floor(s/60);s=s%60;
+    el.textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  },1000);
+}
+function stopTimer(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;}}
+function getElapsed(){return timerStart?Math.floor((Date.now()-timerStart)/1000):0;}
+
+// ── FÓRMULA DE NOTA ───────────────────────────────────────────────────
+function calcNota(c,w,total){
+  var blank=total-c-w;
+  var nota=Math.max(0,(c-w*0.5)/30*10);
+  return {c:c,w:w,blank:blank,nota:Math.round(nota*100)/100};
+}
+function checkBlockComplete(){
+  if(!queue.length||queue.length>30)return;
+  var done=queue.filter(function(q){return answered[getKey(q)]!==undefined;}).length;
+  if(done===queue.length){
+    var c=0,w=0;
+    queue.forEach(function(q){
+      var a=answered[getKey(q)];
+      if(a===undefined)return;
+      if(a===q.correcta)c++;else w++;
+    });
+    var r=calcNota(c,w,queue.length);
+    document.getElementById('bsc-nota').textContent=r.nota.toFixed(2)+'/10';
+    document.getElementById('bsc-nota').style.color=r.nota>=5?'#10b981':'#ef4444';
+    document.getElementById('bsc-c').textContent=r.c;
+    document.getElementById('bsc-w').textContent=r.w;
+    document.getElementById('bsc-b').textContent=r.blank;
+    document.getElementById('block-score-card').classList.remove('hidden');
+    saveHistSession();
+  }
+}
+
+// ── HISTORIAL ─────────────────────────────────────────────────────────
+var testHistory=JSON.parse(ls.get('pe_history')||'[]');
+function saveHistSession(){
+  if(!queue.length||queue.length>30)return;
+  var c=0,w=0;
+  var qs=queue.map(function(q){
+    var a=answered[getKey(q)];
+    var ok=(a===q.correcta);
+    if(a!==undefined){if(ok)c++;else w++;}
+    return {id:q.id,_t:q._t,enunciado:q.enunciado,opciones:q.opciones,correcta:q.correcta,answered:a};
+  });
+  var r=calcNota(c,w,queue.length);
+  var session={
+    date:new Date().toISOString(),
+    testKey:testKey,
+    label:BLOCK_LABELS[testKey]||testKey,
+    elapsed:getElapsed(),
+    correct:c,wrong:w,blank:queue.length-c-w,
+    nota:r.nota,
+    questions:qs
+  };
+  testHistory.unshift(session);
+  if(testHistory.length>60)testHistory.pop();
+  ls.set('pe_history',JSON.stringify(testHistory));
+}
+
+function renderHistorial(){
+  var hist=document.getElementById('hist-list');
+  var rev=document.getElementById('hist-review');
+  hist.innerHTML='';rev.classList.add('hidden');hist.style.display='';
+  if(!testHistory.length){hist.innerHTML='<div class="card p-4 text-center text-sm" style="color:var(--muted)">Sin sesiones guardadas todavía. Completa un bloque de 30 preguntas para guardar el historial.</div>';return;}
+  testHistory.forEach(function(s,idx){
+    var d=new Date(s.date);
+    var dateStr=d.toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'2-digit'});
+    var timeStr=d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    var mins=Math.floor((s.elapsed||0)/60),secs=(s.elapsed||0)%60;
+    var timerStr=(mins<10?'0':'')+mins+':'+(secs<10?'0':'')+secs;
+    var nota=typeof s.nota==='number'?s.nota.toFixed(2):'?';
+    var color=s.nota>=5?'#10b981':'#ef4444';
+    var div=document.createElement('div');
+    div.className='card p-4';
+    div.innerHTML='<div class="flex items-center justify-between mb-2">'
+      +'<div><div class="text-xs font-bold" style="color:var(--text)">'+escHtml(s.label)+'</div>'
+      +'<div class="text-xs" style="color:var(--muted)">'+dateStr+' · '+timeStr+' · ⏱ '+timerStr+'</div></div>'
+      +'<div class="text-xl font-black" style="color:'+color+'">'+nota+'<span class="text-xs font-normal">/10</span></div></div>'
+      +'<div class="flex gap-4 text-xs mb-3">'
+      +'<span style="color:#10b981">✓ '+s.correct+' aciertos</span>'
+      +'<span style="color:#ef4444">✗ '+s.wrong+' fallos</span>'
+      +'<span style="color:var(--muted)">— '+(s.blank||0)+' blancos</span></div>'
+      +'<button class="btn-ghost w-full text-xs py-1.5">🔍 Revisar respuestas</button>';
+    (function(sidx){div.querySelector('button').onclick=function(){openHistReview(sidx);};})(idx);
+    hist.appendChild(div);
+  });
+}
+
+function openHistReview(idx){
+  var s=testHistory[idx];
+  document.getElementById('hist-list').style.display='none';
+  var rev=document.getElementById('hist-review');rev.classList.remove('hidden');
+  document.getElementById('hist-rev-title').textContent=s.label+' — '+new Date(s.date).toLocaleDateString('es-ES');
+  var list=document.getElementById('hist-rev-list');list.innerHTML='';
+  s.questions.forEach(function(q,i){
+    var answered=q.answered;
+    var ok=(answered===q.correcta);
+    var blank=(answered===undefined);
+    var div=document.createElement('div');
+    div.className='card p-4';
+    var icon=blank?'—':ok?'✅':'❌';
+    var bgColor=blank?'var(--surface)':ok?'color-mix(in srgb,#10b981 8%,transparent)':'color-mix(in srgb,#ef4444 8%,transparent)';
+    div.style.cssText='background:'+bgColor;
+    var html='<div class="text-xs font-semibold mb-2" style="color:var(--muted)">'+(i+1)+'. '+icon+'</div>'
+      +'<div class="text-xs font-medium mb-3" style="color:var(--text)">'+escHtml(q.enunciado)+'</div>'
+      +'<div class="flex flex-col gap-1">';
+    q.opciones.forEach(function(op,oi){
+      var isCorrect=(oi===q.correcta);
+      var isAnswered=(oi===answered);
+      var cls='text-xs px-3 py-1.5 rounded-lg ';
+      var st='';
+      if(isCorrect)st='background:color-mix(in srgb,#10b981 15%,transparent);color:#10b981;font-weight:700;border:1.5px solid #10b981';
+      else if(isAnswered&&!isCorrect)st='background:color-mix(in srgb,#ef4444 15%,transparent);color:#ef4444;font-weight:700;border:1.5px solid #ef4444';
+      else st='background:var(--surface);color:var(--muted);border:1.5px solid var(--border)';
+      html+='<div class="'+cls+'" style="'+st+'">'+escHtml(op)+'</div>';
+    });
+    html+='</div>';
+    div.innerHTML=html;
+    list.appendChild(div);
+  });
+}
+
+function closeHistReview(){
+  document.getElementById('hist-review').classList.add('hidden');
+  document.getElementById('hist-list').style.display='';
+}
+
+// ── CUENTA ATRÁS AL EXAMEN ────────────────────────────────────────────
+function renderCountdown(){
+  var exam=new Date('2026-06-22T09:00:00');
+  var study=new Date('2026-05-01T00:00:00');
+  var now=new Date();
+  var daysLeft=Math.max(0,Math.ceil((exam-now)/(864e5)));
+  var total=Math.ceil((exam-study)/(864e5));
+  var passed=Math.max(0,Math.ceil((now-study)/(864e5)));
+  var pct=Math.min(100,Math.round(passed/total*100));
+  var lbl=document.getElementById('cd-label');
+  var bar=document.getElementById('cd-bar');
+  if(lbl)lbl.textContent=daysLeft>0?'Quedan '+daysLeft+' días para el examen':'¡Día del examen!';
+  if(bar)bar.style.width=pct+'%';
+}
+
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 var BADGE_CLASS={1:'badge-t1',2:'badge-t2',3:'badge-t3',4:'badge-t4',5:'badge-t5',6:'badge-t6',7:'badge-t7',8:'badge-t8'};
@@ -9043,12 +9242,15 @@ function renderQ(anim){
   document.getElementById('q-text').textContent=q.enunciado;
   var opts=document.getElementById('q-opts'); opts.innerHTML='';
   var key=getKey(q),prev=answered[key];
-  q.opciones.forEach(function(op,i){
+  var order=getShuffleOrder(q);
+  var letters=['A','B','C','D'];
+  order.forEach(function(origIdx,displayPos){
+    var op=q.opciones[origIdx];
     var btn=document.createElement('button');
     btn.className='opt-btn';
-    btn.innerHTML='<span class="inline-block w-5 h-5 rounded-full border text-xs font-bold mr-2.5 leading-5 text-center shrink-0" style="border-color:currentColor;opacity:.5">'+(i+1)+'</span>'+escHtml(op);
-    if(prev!==undefined){btn.disabled=true;if(i===q.correcta)btn.classList.add('opt-correct');else if(i===prev&&prev!==q.correcta)btn.classList.add('opt-wrong');}
-    btn.onclick=function(){answerQ(q,i);};
+    btn.innerHTML='<span class="inline-block w-5 h-5 rounded-full border text-xs font-bold mr-2.5 leading-5 text-center shrink-0" style="border-color:currentColor;opacity:.5">'+letters[displayPos]+'</span>'+escHtml(op);
+    if(prev!==undefined){btn.disabled=true;if(origIdx===q.correcta)btn.classList.add('opt-correct');else if(origIdx===prev&&prev!==q.correcta)btn.classList.add('opt-wrong');}
+    (function(oi){btn.onclick=function(){answerQ(q,oi);};})(origIdx);
     opts.appendChild(btn);
   });
   var cita=document.getElementById('q-cita');
@@ -9083,6 +9285,7 @@ function answerQ(q,selected){
   ls.set('pe_stats11',JSON.stringify(stats));
   renderQ('');
   renderQNavRow();
+  checkBlockComplete();
 }
 function navQ(dir){if(dir===1&&qIdx<queue.length-1){qIdx++;renderQ('anim-left');}else if(dir===-1&&qIdx>0){qIdx--;renderQ('anim-right');}}
 function skipQ(){navQ(1);}
@@ -9199,7 +9402,7 @@ function setMode(m){
   or.style.background=m==='orden'?'var(--accent)':'var(--surface)';or.style.color=m==='orden'?'#fff':'var(--muted)';
   restartQueue();
 }
-function restartQueue(){answered={};queue=buildQueue();qIdx=0;renderQ('anim-up');}
+function restartQueue(){answered={};clearShuffle();queue=buildQueue();qIdx=0;document.getElementById('block-score-card').classList.add('hidden');startTimer();renderQ('anim-up');}
 function resetTest(){if(!confirm('¿Reiniciar este bloque?'))return;restartQueue();}
 
 var txS=0,tyS=0;
@@ -9208,7 +9411,7 @@ document.getElementById('q-card').addEventListener('touchend',function(e){var dx
 document.addEventListener('keydown',function(e){if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;if(e.key==='ArrowRight')navQ(1);if(e.key==='ArrowLeft')navQ(-1);if(/^[1-4]$/.test(e.key)){var q=queue[qIdx];if(q)answerQ(q,parseInt(e.key)-1);}});
 
 function showSection(s){
-  ['test','repaso','simulacro','glosario','casos','stats'].forEach(function(sec){
+  ['test','repaso','simulacro','glosario','casos','stats','historial'].forEach(function(sec){
     document.getElementById('section-'+sec).classList.toggle('hidden',sec!==s);
     var tab=document.getElementById('tab-'+sec);
     if(tab)tab.className='nav-tab'+(sec===s?' active':'');
@@ -9216,6 +9419,7 @@ function showSection(s){
   if(s==='glosario'){renderGlosarioCats();renderGlosario();}
   if(s==='casos')renderCasos();
   if(s==='stats')renderStats();
+  if(s==='historial')renderHistorial();
   if(s==='repaso')renderRepaso();
   if(s==='simulacro'){simQueue=[];simIdx=0;simAnswered={};document.getElementById('sim-area').classList.add('hidden');document.getElementById('sim-config').classList.remove('hidden');document.getElementById('sim-result').classList.add('hidden');}
 }
@@ -9437,7 +9641,7 @@ function showSimResult(){
   ls.set('pe_stats11',JSON.stringify(stats));
 }
 
-queue=buildQueue();renderQ('anim-up');renderTestSelector();renderSimTemas();
+queue=buildQueue();renderQ('anim-up');renderTestSelector();renderSimTemas();renderCountdown();startTimer();
 </script>
 </body>
 </html>
