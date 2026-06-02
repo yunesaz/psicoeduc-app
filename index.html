@@ -298,6 +298,10 @@ textarea.styled:focus{outline:none;border-color:var(--accent);}
 
   <div id="section-repaso" class="hidden pt-4">
     <p class="section-header">Repaso de preguntas falladas</p>
+    <div class="flex gap-2 mb-4">
+      <button onclick="setRepasoMode('test')" id="repaso-tab-test" class="btn-primary flex-1 text-xs py-2">❌ Del test</button>
+      <button onclick="setRepasoMode('sim')" id="repaso-tab-sim" class="btn-ghost flex-1 text-xs py-2">🎲 Del simulacro</button>
+    </div>
     <div id="repaso-info" class="card p-4 mb-4 text-sm text-center" style="color:var(--muted)">Cargando…</div>
     <div id="repaso-card-wrap"></div>
     <div class="flex gap-2.5 mb-3" id="repaso-nav" style="display:none!important">
@@ -344,9 +348,19 @@ textarea.styled:focus{outline:none;border-color:var(--accent);}
         <button onclick="simNav(1)" class="btn-primary flex-1">Siguiente →</button>
       </div>
       <div id="sim-result" class="hidden card p-5 text-center mb-4">
-        <div class="text-3xl font-bold mb-2" id="sim-res-pct" style="color:var(--accent)">—</div>
-        <div class="text-sm" style="color:var(--muted)" id="sim-res-detail"></div>
-        <button onclick="startSimulacro()" class="btn-primary mt-4">🔄 Nuevo simulacro</button>
+        <div id="sim-res-timer" class="text-xs mb-2" style="color:var(--muted)"></div>
+        <div class="text-4xl font-black mb-1" id="sim-res-nota" style="color:var(--accent)">—</div>
+        <div class="text-xs mb-3" style="color:var(--muted)">NOTA SOBRE 10</div>
+        <div class="flex justify-around mb-3">
+          <div><div id="sim-res-c" class="text-xl font-bold" style="color:#10b981">0</div><div class="text-xs" style="color:var(--muted)">Aciertos</div></div>
+          <div><div id="sim-res-w" class="text-xl font-bold" style="color:#ef4444">0</div><div class="text-xs" style="color:var(--muted)">Fallos</div></div>
+          <div><div id="sim-res-b" class="text-xl font-bold" style="color:var(--muted)">0</div><div class="text-xs" style="color:var(--muted)">Blancos</div></div>
+        </div>
+        <div class="text-xs mb-4" style="color:var(--muted)">Fórmula: (Aciertos − Fallos÷2) ÷ N × 10</div>
+        <div class="flex gap-2">
+          <button onclick="showSection('repaso');setRepasoMode('sim')" class="btn-ghost flex-1 text-xs">Ver fallos →</button>
+          <button onclick="showSection('simulacro')" class="btn-primary flex-1 text-xs">🔄 Nuevo simulacro</button>
+        </div>
       </div>
       <div class="text-center"><button onclick="showSection('simulacro')" class="text-xs" style="color:var(--muted)">↩ Volver a configuración</button></div>
     </div>
@@ -9526,22 +9540,33 @@ function renderStats(){
   if(!keys.length){bl.innerHTML='<span>Sin datos aún.</span>';return;}
   bl.innerHTML=keys.map(function(k){var b=stats.blocks[k],bt=b.c+b.w,p=bt>0?Math.round(b.c/bt*100):0;return '<div class="flex items-center gap-2 py-1"><span class="text-xs font-medium w-28" style="color:var(--text)">'+(BLOCK_LABELS[k]||k)+'</span><div class="flex-1 progress-bar"><div class="progress-fill" style="width:'+p+'%"></div></div><span class="text-xs font-semibold w-10 text-right" style="color:var(--accent)">'+p+'%</span></div>';}).join('');
 }
-function clearStats(){if(!confirm('¿Borrar todas las estadísticas?'))return;stats={t1_c:0,t1_w:0,t2_c:0,t2_w:0,t3_c:0,t3_w:0,t4_c:0,t4_w:0,t5_c:0,t5_w:0,t6_c:0,t6_w:0,t7_c:0,t7_w:0,t8_c:0,t8_w:0,blocks:{}};wrongAnswers={};ls.set('pe_stats11',JSON.stringify(stats));ls.set('pe_wrong',JSON.stringify(wrongAnswers));renderStats();}
+function clearStats(){if(!confirm('¿Borrar todas las estadísticas?'))return;stats={t1_c:0,t1_w:0,t2_c:0,t2_w:0,t3_c:0,t3_w:0,t4_c:0,t4_w:0,t5_c:0,t5_w:0,t6_c:0,t6_w:0,t7_c:0,t7_w:0,t8_c:0,t8_w:0,blocks:{}};wrongAnswers={};simWrongAnswers={};ls.set('pe_stats11',JSON.stringify(stats));ls.set('pe_wrong',JSON.stringify(wrongAnswers));ls.set('pe_sim_wrong','{}');testHistory=[];ls.set('pe_history','[]');renderStats();}
 
 
 // == REPASO ==──────────────
-var repasoQueue=[],repasoIdx=0,repasoAnswered={};
+var repasoQueue=[],repasoIdx=0,repasoAnswered={},repasoMode='test';
+function setRepasoMode(mode){
+  repasoMode=mode;
+  document.getElementById('repaso-tab-test').className=(mode==='test'?'btn-primary':'btn-ghost')+' flex-1 text-xs py-2';
+  document.getElementById('repaso-tab-sim').className=(mode==='sim'?'btn-primary':'btn-ghost')+' flex-1 text-xs py-2';
+  renderRepaso();
+}
 function renderRepaso(){
-  repasoQueue=Object.values(wrongAnswers);
+  var source=repasoMode==='sim'?simWrongAnswers:wrongAnswers;
+  repasoQueue=Object.values(source);
   repasoIdx=0;repasoAnswered={};
   var info=document.getElementById('repaso-info');
   var wrap=document.getElementById('repaso-card-wrap');
   var nav=document.getElementById('repaso-nav');
+  var emptyMsg=repasoMode==='sim'
+    ?'🎉 ¡Sin fallos del simulacro! Completa un simulacro para acumular aquí las incorrectas.'
+    :'🎉 ¡Sin preguntas falladas! Responde preguntas en el Test para acumular aquí las incorrectas.';
   if(!repasoQueue.length){
-    info.innerHTML='<p class="text-sm" style="color:var(--muted)">🎉 ¡Sin preguntas falladas! Responde preguntas en el Test para acumular aquí las incorrectas.</p>';
+    info.innerHTML='<p class="text-sm" style="color:var(--muted)">'+emptyMsg+'</p>';
     wrap.innerHTML='';nav.style.display='none';return;
   }
-  info.innerHTML='<span class="font-semibold" style="color:var(--accent)">'+repasoQueue.length+'</span> preguntas falladas';
+  var origen=repasoMode==='sim'?'🎲 simulacro':'❌ test';
+  info.innerHTML='<span class="font-semibold" style="color:var(--accent)">'+repasoQueue.length+'</span> preguntas falladas en el '+origen;
   nav.style.display='';
   renderRepasoQ();
 }
@@ -9597,6 +9622,7 @@ function resetRepaso(){repasoAnswered={};renderRepaso();}
 
 // == SIMULACRO ==──────────────────
 var simN=30,simQueue=[],simIdx=0,simAnswered={},simDone=false;
+var simWrongAnswers=JSON.parse(ls.get('pe_sim_wrong')||'{}');
 function setSim(n){
   simN=n;
   [10,20,30,50].forEach(function(v){
@@ -9609,6 +9635,8 @@ function startSimulacro(){
   pool.sort(function(){return Math.random()-.5;});
   simQueue=pool.slice(0,Math.min(simN,pool.length));
   simIdx=0;simAnswered={};simDone=false;
+  simWrongAnswers={};ls.set('pe_sim_wrong','{}');
+  startTimer();
   document.getElementById('sim-config').classList.add('hidden');
   document.getElementById('sim-area').classList.remove('hidden');
   document.getElementById('sim-result').classList.add('hidden');
@@ -9643,12 +9671,15 @@ function answerSim(q,sel){
   var key='s'+q._t+'_'+q.id;if(simAnswered[key]!==undefined)return;
   var ok=sel===q.correcta;
   simAnswered[key]={sel:sel,ok:ok};
+  // Guardar fallos del simulacro
+  var wkey='s'+q._t+'_'+q.id;
+  if(!ok){simWrongAnswers[wkey]=q;}else{delete simWrongAnswers[wkey];}
+  ls.set('pe_sim_wrong',JSON.stringify(simWrongAnswers));
   renderSimQ();
-  // auto-advance after 1.2s if correct
-  if(ok&&simIdx<simQueue.length-1)setTimeout(function(){simIdx++;renderSimQ();},1200);
-  // check if done
-  if(Object.keys(simAnswered).length===simQueue.length&&!simDone){simDone=true;setTimeout(showSimResult,1500);}
+  if(ok&&simIdx<simQueue.length-1)setTimeout(function(){simIdx++;renderSimQ();},800);
+  if(Object.keys(simAnswered).length===simQueue.length&&!simDone){simDone=true;setTimeout(showSimResult,1000);}
 }
+
 function simNav(dir){
   if(dir===1&&simIdx<simQueue.length-1){simIdx++;renderSimQ();}
   else if(dir===-1&&simIdx>0){simIdx--;renderSimQ();}
@@ -9657,14 +9688,42 @@ function simNav(dir){
 function showSimResult(){
   var c=0,w=0;
   Object.values(simAnswered).forEach(function(a){if(a.ok)c++;else w++;});
-  var tot=c+w,pct=tot>0?Math.round(c/tot*100):0;
-  document.getElementById('sim-res-pct').textContent=pct+'%';
-  document.getElementById('sim-res-detail').textContent=c+' correctas · '+w+' incorrectas de '+tot+' preguntas';
+  var tot=simQueue.length,blank=tot-c-w;
+  var nota=Math.max(0,(c-w*0.5)/tot*10);
+  var notaStr=(Math.round(nota*100)/100).toFixed(2);
+  // Timer
+  stopTimer();
+  var timerEl=document.getElementById('test-timer');
+  var timerVal=timerEl?timerEl.textContent:'00:00';
+  // Update result card
+  document.getElementById('sim-res-nota').textContent=notaStr+'/10';
+  document.getElementById('sim-res-nota').style.color=nota>=5?'#10b981':'#ef4444';
+  document.getElementById('sim-res-c').textContent=c;
+  document.getElementById('sim-res-w').textContent=w;
+  document.getElementById('sim-res-b').textContent=blank;
+  document.getElementById('sim-res-timer').textContent='⏱ '+timerVal;
   document.getElementById('sim-result').classList.remove('hidden');
-  // save to stats blocks
+  // Save to blocks stats
   if(!stats.blocks.simulacro)stats.blocks.simulacro={c:0,w:0};
   stats.blocks.simulacro.c+=c;stats.blocks.simulacro.w+=w;
   ls.set('pe_stats11',JSON.stringify(stats));
+  // Save to historial
+  var qs=simQueue.map(function(q){
+    var key='s'+q._t+'_'+q.id;
+    var ans=simAnswered[key];
+    return {id:q.id,_t:q._t,enunciado:q.enunciado,opciones:q.opciones,correcta:q.correcta,answered:ans?ans.sel:undefined};
+  });
+  var session={
+    date:new Date().toISOString(),
+    testKey:'simulacro',
+    label:'Simulacro ('+tot+' preguntas)',
+    elapsed:timerStart?Math.floor((Date.now()-timerStart)/1000):0,
+    correct:c,wrong:w,blank:blank,nota:Math.round(nota*100)/100,
+    questions:qs
+  };
+  testHistory.unshift(session);
+  if(testHistory.length>60)testHistory.pop();
+  ls.set('pe_history',JSON.stringify(testHistory));
 }
 
 queue=buildQueue();renderQ('anim-up');renderTestSelector();renderSimTemas();renderCountdown();startTimer();
