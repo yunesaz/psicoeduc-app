@@ -240,8 +240,8 @@ textarea.styled:focus{outline:none;border-color:var(--accent);}
         <div><div id="bsc-w" class="text-lg font-bold" style="color:#ef4444">0</div><div style="color:var(--muted)">Fallos</div></div>
         <div><div id="bsc-b" class="text-lg font-bold" style="color:var(--muted)">0</div><div style="color:var(--muted)">Blancos</div></div>
       </div>
-      <div class="text-xs text-center mb-3" style="color:var(--muted)">Fórmula: (Aciertos − Fallos÷2) ÷ 30 × 10</div>
-      <div class="flex gap-2"><button onclick="document.getElementById('block-score-card').classList.add('hidden')" class="btn-ghost flex-1 text-xs">Ver preguntas</button><button onclick="openTheme=null;renderTestSelector();document.getElementById('block-score-card').classList.add('hidden');document.getElementById('test-selector-ui').scrollIntoView({behavior:'smooth'})" class="btn-primary flex-1 text-xs">Nuevo test →</button></div>
+      <div class="text-xs text-center mb-1" style="color:var(--muted)" id="bsc-timer"></div><div class="text-xs text-center mb-3" style="color:var(--muted)">Fórmula: (Aciertos − Fallos÷2) ÷ 30 × 10</div>
+      <div class="flex gap-2"><button onclick="verPreguntas()" class="btn-ghost flex-1 text-xs">Ver preguntas</button><button onclick="finishTest()" class="btn-primary flex-1 text-xs">Nuevo test →</button></div>
     </div>
     <div id="q-nav-row" class="mb-3 overflow-x-auto pb-1"></div>
     <div id="q-card" class="card p-5 mb-4 swipe-area">
@@ -9113,9 +9113,18 @@ function checkBlockComplete(){
     document.getElementById('bsc-c').textContent=r.c;
     document.getElementById('bsc-w').textContent=r.w;
     document.getElementById('bsc-b').textContent=r.blank;
-    document.getElementById('block-score-card').classList.remove('hidden');
-    document.getElementById('block-score-card').scrollIntoView({behavior:'smooth',block:'start'});
+    // Congelar timer y mostrarlo en la tarjeta
     stopTimer();
+    var timerEl=document.getElementById('test-timer');
+    var timerVal=timerEl?timerEl.textContent:'00:00';
+    document.getElementById('bsc-timer').textContent='⏱ '+timerVal;
+    // Ocultar pregunta y navegación
+    document.getElementById('q-nav-row').style.display='none';
+    document.getElementById('q-card').style.display='none';
+    document.querySelector('.flex.gap-2\.5.mb-3').style.display='none';
+    // Mostrar tarjeta de resultado
+    document.getElementById('block-score-card').classList.remove('hidden');
+    window.scrollTo({top:0,behavior:'smooth'});
     saveHistSession();
   }
 }
@@ -9404,7 +9413,22 @@ function setMode(m){
   or.style.background=m==='orden'?'var(--accent)':'var(--surface)';or.style.color=m==='orden'?'#fff':'var(--muted)';
   restartQueue();
 }
-function restartQueue(){answered={};clearShuffle();queue=buildQueue();qIdx=0;document.getElementById('block-score-card').classList.add('hidden');startTimer();renderQ('anim-up');}
+function restoreTestUI(){
+  document.getElementById('q-nav-row').style.display='';
+  document.getElementById('q-card').style.display='';
+  var nav=document.querySelector('.flex.gap-2\.5.mb-3');if(nav)nav.style.display='';
+  document.getElementById('block-score-card').classList.add('hidden');
+}
+function finishTest(){
+  restoreTestUI();
+  openTheme=null;renderTestSelector();
+  document.getElementById('test-selector-ui').scrollIntoView({behavior:'smooth'});
+}
+function verPreguntas(){
+  restoreTestUI();
+  document.getElementById('q-card').scrollIntoView({behavior:'smooth'});
+}
+function restartQueue(){answered={};clearShuffle();queue=buildQueue();qIdx=0;restoreTestUI();startTimer();renderQ('anim-up');}
 function resetTest(){if(!confirm('¿Reiniciar este bloque?'))return;restartQueue();}
 
 var txS=0,tyS=0;
